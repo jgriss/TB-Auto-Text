@@ -1,0 +1,35 @@
+{
+  "manifest_version": 2,
+  "name": "Keyword Text Inserter",
+  "version": "1.0.0",
+  "description": "Replace keywords in your emails with predefined text passages, or insert a passage manually at the cursor.",
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "compose"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "compose_action": {
+    "default_title": "Keyword Text Inserter",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "48": "icons/icon.svg"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "keyword-text-inserter@example.com",
+      "strict_min_version": "115.0"
+    }
+  }
+}

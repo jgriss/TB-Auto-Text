@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>Keyword Text Inserter</h1>
+
+  <button id="replaceBtn" type="button">Replace keywords in this email</button>
+
+  <label for="keywordSelect">Insert text at cursor:</label>
+  <select id="keywordSelect">
+    <option value="">— choose a keyword —</option>
+  </select>
+
+  <div class="footer">
+    <button id="configureBtn" type="button" class="linkBtn">Configure keywords…</button>
+    <span id="status" role="status"></span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
