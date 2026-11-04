@@ -68,7 +68,26 @@ function scheduleSave() {
   saveTimer = setTimeout(save, 400);
 }
 
+async function showHotkey() {
+  const el = document.getElementById("hotkeyInfo");
+  let text = "Shortcut: Ctrl+E (default).";
+  try {
+    const cmds = await browser.commands.getAll();
+    const cmd = cmds.find((c) => c.name === "replace-keywords");
+    if (cmd && cmd.shortcut) {
+      text = "Current shortcut: " + cmd.shortcut + ".";
+    }
+  } catch (e) {
+    // commands API unavailable; show default
+  }
+  el.textContent =
+    text + " Press it in a compose window to replace all keywords in the draft. " +
+    "To change it (e.g. to F4), open the Add-on Manager, click the gear icon, " +
+    "choose \"Manage Extension Shortcuts\".";
+}
+
 async function init() {
+  showHotkey();
   const snippets = await loadSnippets();
   rowsEl.textContent = "";
   for (const snippet of snippets) {
