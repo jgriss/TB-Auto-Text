@@ -33,12 +33,36 @@ function ktiGetDoc() {
   return { doc: null, diag: tried.join("; ") };
 }
 
+function ktiEscapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function ktiTextToFragment(doc, text) {
+  const frag = doc.createDocumentFragment();
+  const parts = String(text).split("\n");
+  parts.forEach((part, i) => {
+    if (i > 0) {
+      frag.appendChild(doc.createElement("br"));
+    }
+    if (part) {
+      frag.appendChild(doc.createTextNode(part));
+    }
+  });
+  return frag;
+}
+
 function ktiReplaceKeywords(pairs) {
   const found = ktiGetDoc();
   if (!found.doc || !found.doc.body) {
     return { value: -1, diag: found.diag };
   }
   const doc = found.doc;
+  const active = pairs.filter((p) => p.keyword);
+  const map = new Map(active.map((p) => [p.keyword, p.text]));
+  const re = new RegExp(
+    active.map((p) => ktiEscapeRegExp(p.keyword)).sort((a, b) => b.length - a.length).join("|"),
+    "g"
+  );
   let replaced = 0;
   const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -54,16 +78,27 @@ function ktiReplaceKeywords(pairs) {
     textNodes.push(walker.currentNode);
   }
   for (const node of textNodes) {
-    let value = node.nodeValue;
-    for (const pair of pairs) {
-      if (pair.keyword) {
-        value = value.split(pair.keyword).join(pair.text);
-      }
+    const text = node.nodeValue;
+    re.lastIndex = 0;
+    if (!re.test(text)) {
+      continue;
     }
-    if (value !== node.nodeValue) {
-      node.nodeValue = value;
+    re.lastIndex = 0;
+    const frag = doc.createDocumentFragment();
+    let last = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) {
+        frag.appendChild(doc.createTextNode(text.slice(last, m.index)));
+      }
+      frag.appendChild(ktiTextToFragment(doc, map.get(m[0])));
+      last = m.index + m[0].length;
       replaced++;
     }
+    if (last < text.length) {
+      frag.appendChild(doc.createTextNode(text.slice(last)));
+    }
+    node.parentNode.replaceChild(frag, node);
   }
   return { value: replaced, diag: found.diag };
 }
@@ -83,7 +118,17 @@ function ktiInsertAtCursor(text) {
     sel.removeAllRanges();
     sel.addRange(range);
   }
-  return { value: doc.execCommand("insertText", false, text), diag: found.diag };
+  const html = String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .split("\n")
+    .join("<br>");
+  let ok = doc.execCommand("insertHTML", false, html);
+  if (!ok) {
+    ok = doc.execCommand("insertText", false, text);
+  }
+  return { value: ok, diag: found.diag };
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
