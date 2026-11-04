@@ -17,6 +17,9 @@ them while writing emails.
    dropdown listing only the keywords. Selecting one inserts the associated
    text passage at the current cursor position in the draft (falling back to
    the end of the body if the cursor is not in the text).
+4. **Hotkey** — pressing **Ctrl+E** (default; changeable to e.g. F4 via
+   Add-on Manager → Manage Extension Shortcuts) in a compose window replaces
+   all keywords in the draft without opening the popup.
 
 ## How it works
 

@@ -26,6 +26,14 @@
       "48": "icons/icon.svg"
     }
   },
+  "commands": {
+    "replace-keywords": {
+      "suggested_key": {
+        "default": "Ctrl+E"
+      },
+      "description": "Replace all keywords in the current email with their text passages"
+    }
+  },
   "browser_specific_settings": {
     "gecko": {
       "id": "keyword-text-inserter@example.com",

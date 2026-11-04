@@ -38,6 +38,24 @@ async function injectIntoOpenComposeWindows() {
 
 injectIntoOpenComposeWindows();
 
+browser.commands.onCommand.addListener(async (command) => {
+  if (command !== "replace-keywords") {
+    return;
+  }
+  const data = await browser.storage.local.get(STORAGE_KEY);
+  const pairs = (Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : []).filter(
+    (s) => s.keyword && s.text
+  );
+  if (pairs.length === 0) {
+    return;
+  }
+  try {
+    await browser.runtime.sendMessage({ type: "kti:replace", pairs });
+  } catch (e) {
+    console.error("replace-keywords command failed:", e);
+  }
+});
+
 browser.runtime.onMessage.addListener((message) => {
   if (message && message.type === "openOptions") {
     return browser.runtime.openOptionsPage();
