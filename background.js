@@ -19,6 +19,25 @@ browser.composeScripts
   .register({ js: [{ file: "compose/compose-script.js" }] })
   .catch((err) => console.error("composeScripts registration failed:", err));
 
+async function injectIntoOpenComposeWindows() {
+  try {
+    const wins = await browser.windows.getAll({ populate: true, windowTypes: ["messageCompose"] });
+    for (const win of wins) {
+      for (const tab of win.tabs || []) {
+        try {
+          await browser.tabs.executeScript(tab.id, { file: "compose/compose-script.js" });
+        } catch (e) {
+          // ignore individual failures
+        }
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+injectIntoOpenComposeWindows();
+
 browser.runtime.onMessage.addListener((message) => {
   if (message && message.type === "openOptions") {
     return browser.runtime.openOptionsPage();

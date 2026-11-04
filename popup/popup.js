@@ -18,11 +18,12 @@ function showStatus(text) {
 }
 
 function describe(result) {
+  const via = result.via ? " [" + result.via + "]" : "";
   if (result.error) {
-    return result.error;
+    return result.error + via;
   }
   if (result.value === null || result.value === undefined || result.value < 0) {
-    return "Could not access the message body" + (result.diag ? " (" + result.diag + ")" : "");
+    return "Could not access the message body" + (result.diag ? " (" + result.diag + ")" : "") + via;
   }
   return null;
 }
@@ -183,13 +184,20 @@ async function runInComposeTab(fn, arg) {
 async function runInCompose(message, fn, arg) {
   try {
     const resp = await browser.runtime.sendMessage(message);
-    if (resp && typeof resp === "object" && resp.result && "value" in resp.result) {
-      return { value: resp.result.value, diag: resp.result.diag };
+    if (resp && typeof resp === "object") {
+      if (resp.result && "value" in resp.result) {
+        return { value: resp.result.value, diag: resp.result.diag, via: "compose script" };
+      }
+      if ("value" in resp) {
+        return { value: resp.value, diag: resp.diag, via: "compose script" };
+      }
     }
   } catch (e) {
     // no compose script reachable; fall back to direct tab injection
   }
-  return runInComposeTab(fn, arg);
+  const fallback = await runInComposeTab(fn, arg);
+  fallback.via = "fallback";
+  return fallback;
 }
 
 async function init() {

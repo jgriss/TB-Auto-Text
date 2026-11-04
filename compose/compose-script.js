@@ -90,7 +90,10 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== "object") {
     return;
   }
-  if (message.type === "kti:replace") {
+  if (message.type === "kti:ping") {
+    const found = ktiGetDoc();
+    sendResponse({ ok: true, result: { value: found.doc ? 1 : 0, diag: found.diag } });
+  } else if (message.type === "kti:replace") {
     sendResponse({ ok: true, result: ktiReplaceKeywords(message.pairs || []) });
   } else if (message.type === "kti:insert") {
     sendResponse({ ok: true, result: ktiInsertAtCursor(message.text || "") });
