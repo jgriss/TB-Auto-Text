@@ -11,15 +11,21 @@ async function getSnippets() {
 }
 
 async function getComposeTab() {
-  const win = await browser.windows.getLastFocused();
-  if (win) {
-    const tabs = await browser.tabs.query({ windowId: win.id, windowType: "messageCompose" });
-    if (tabs.length > 0) {
-      return tabs[0];
-    }
+  const allTabs = await browser.tabs.query({});
+  const composeTabs = allTabs.filter((t) => t.windowType === "messageCompose");
+  if (composeTabs.length === 0) {
+    return null;
   }
-  const tabs = await browser.tabs.query({ windowType: "messageCompose" });
-  return tabs.length > 0 ? tabs[0] : null;
+  try {
+    const win = await browser.windows.getLastFocused();
+    const inFocusedWindow = composeTabs.find((t) => t.windowId === win.id);
+    if (inFocusedWindow) {
+      return inFocusedWindow;
+    }
+  } catch (e) {
+    // fall through to active/last compose tab
+  }
+  return composeTabs.find((t) => t.active) || composeTabs[composeTabs.length - 1];
 }
 
 function showStatus(text) {
@@ -95,12 +101,15 @@ function ktiInsertAtCursor(text) {
 async function runInComposeTab(fn, arg) {
   const tab = await getComposeTab();
   if (!tab) {
-    showStatus("No compose window");
-    return null;
+    return { error: "No compose window found" };
   }
   const code = "(" + fn.toString() + ")(" + JSON.stringify(arg) + ");";
-  const results = await browser.tabs.executeScript(tab.id, { code });
-  return Array.isArray(results) ? results[0] : null;
+  try {
+    const results = await browser.tabs.executeScript(tab.id, { code });
+    return { value: Array.isArray(results) ? results[0] : null };
+  } catch (e) {
+    return { error: String(e && e.message ? e.message : e) };
+  }
 }
 
 async function init() {
@@ -125,11 +134,13 @@ async function init() {
       showStatus("No keywords configured");
       return;
     }
-    const replaced = await runInComposeTab(ktiReplaceKeywords, pairs);
-    if (replaced === null || replaced < 0) {
-      showStatus("No compose window");
+    const result = await runInComposeTab(ktiReplaceKeywords, pairs);
+    if (result.error) {
+      showStatus(result.error);
+    } else if (result.value === null || result.value < 0) {
+      showStatus("Could not access the message body");
     } else {
-      showStatus("Replaced in " + replaced + (replaced === 1 ? " place" : " places"));
+      showStatus("Replaced in " + result.value + (result.value === 1 ? " place" : " places"));
     }
   });
 
@@ -144,8 +155,12 @@ async function init() {
     if (!snippet) {
       return;
     }
-    const ok = await runInComposeTab(ktiInsertAtCursor, snippet.text);
-    showStatus(ok ? "Inserted" : "Insert failed");
+    const result = await runInComposeTab(ktiInsertAtCursor, snippet.text);
+    if (result.error) {
+      showStatus(result.error);
+    } else {
+      showStatus(result.value ? "Inserted" : "Insert failed");
+    }
   });
 
   configureBtn.addEventListener("click", () => {
