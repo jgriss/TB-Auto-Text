@@ -11,21 +11,53 @@ async function getSnippets() {
 }
 
 async function getComposeTab() {
-  const allTabs = await browser.tabs.query({});
-  const composeTabs = allTabs.filter((t) => t.windowType === "messageCompose");
-  if (composeTabs.length === 0) {
-    return null;
-  }
+  const candidates = [];
+
   try {
-    const win = await browser.windows.getLastFocused();
-    const inFocusedWindow = composeTabs.find((t) => t.windowId === win.id);
-    if (inFocusedWindow) {
-      return inFocusedWindow;
+    candidates.push(...(await browser.tabs.query({ active: true, currentWindow: true })));
+  } catch (e) {
+    // ignore, try next source
+  }
+
+  try {
+    const wins = await browser.windows.getAll({ populate: true, windowTypes: ["messageCompose"] });
+    for (const win of wins) {
+      candidates.push(...(win.tabs || []));
     }
   } catch (e) {
-    // fall through to active/last compose tab
+    // ignore, try next source
   }
-  return composeTabs.find((t) => t.active) || composeTabs[composeTabs.length - 1];
+
+  try {
+    const win = await browser.windows.getLastFocused({ populate: true });
+    if (win && win.tabs) {
+      candidates.push(...win.tabs);
+    }
+  } catch (e) {
+    // ignore, try next source
+  }
+
+  for (const tab of candidates) {
+    try {
+      const win = await browser.windows.get(tab.windowId);
+      if (win.type === "messageCompose") {
+        return tab;
+      }
+    } catch (e) {
+      return tab;
+    }
+  }
+
+  try {
+    const tabs = await browser.tabs.query({ windowType: "messageCompose" });
+    if (tabs.length > 0) {
+      return tabs[0];
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return null;
 }
 
 function showStatus(text) {
