@@ -130,6 +130,18 @@ function ktiInsertAtCursor(text) {
   return doc.execCommand("insertText", false, text);
 }
 
+async function runInCompose(message, fn, arg) {
+  try {
+    const resp = await browser.runtime.sendMessage(message);
+    if (resp && typeof resp === "object" && "value" in resp) {
+      return { value: resp.value };
+    }
+  } catch (e) {
+    // no compose script reachable; fall back to direct tab injection
+  }
+  return runInComposeTab(fn, arg);
+}
+
 async function runInComposeTab(fn, arg) {
   const tab = await getComposeTab();
   if (!tab) {
@@ -166,7 +178,7 @@ async function init() {
       showStatus("No keywords configured");
       return;
     }
-    const result = await runInComposeTab(ktiReplaceKeywords, pairs);
+    const result = await runInCompose({ type: "kti:replace", pairs }, ktiReplaceKeywords, pairs);
     if (result.error) {
       showStatus(result.error);
     } else if (result.value === null || result.value < 0) {
@@ -187,7 +199,7 @@ async function init() {
     if (!snippet) {
       return;
     }
-    const result = await runInComposeTab(ktiInsertAtCursor, snippet.text);
+    const result = await runInCompose({ type: "kti:insert", text: snippet.text }, ktiInsertAtCursor, snippet.text);
     if (result.error) {
       showStatus(result.error);
     } else {

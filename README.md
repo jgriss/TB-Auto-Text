@@ -22,10 +22,15 @@ them while writing emails.
 
 - `manifest.json` registers a `compose_action` (toolbar button in every
   compose window) with `popup/popup.html`, and an `options_ui` page.
-- `popup/popup.js` reads the pairs from storage and uses
-  `browser.tabs.executeScript()` on the compose tab (allowed by the
-  `compose` permission) to run text replacement / cursor insertion inside the
-  editable `content-frame` iframe of the composer.
+- `background.js` registers a `composeScripts` content script
+  (`compose/compose-script.js`) that is injected into every compose window
+  and performs the text replacement / cursor insertion directly in the
+  editable message document.
+- `popup/popup.js` reads the pairs from storage and sends them to the compose
+  script via `browser.runtime.sendMessage()`. As a fallback (e.g. compose
+  window opened before the add-on was loaded) it locates the compose tab via
+  the windows/tabs APIs and injects the code with `browser.tabs.executeScript()`
+  (allowed by the `compose` permission).
 - `options/options.js` provides the CRUD UI for the pairs.
 - `background.js` seeds a few example entries on first install.
 

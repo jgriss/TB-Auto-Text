@@ -15,6 +15,10 @@ browser.runtime.onInstalled.addListener(async (details) => {
   }
 });
 
+browser.composeScripts
+  .register({ js: [{ file: "compose/compose-script.js" }] })
+  .catch((err) => console.error("composeScripts registration failed:", err));
+
 browser.runtime.onMessage.addListener((message) => {
   if (message && message.type === "openOptions") {
     return browser.runtime.openOptionsPage();
