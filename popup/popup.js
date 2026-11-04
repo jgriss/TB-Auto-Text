@@ -10,6 +10,23 @@ async function getSnippets() {
   return Array.isArray(data[STORAGE_KEY]) ? data[STORAGE_KEY] : [];
 }
 
+function showStatus(text) {
+  statusEl.textContent = text;
+  setTimeout(() => {
+    statusEl.textContent = "";
+  }, 4000);
+}
+
+function describe(result) {
+  if (result.error) {
+    return result.error;
+  }
+  if (result.value === null || result.value === undefined || result.value < 0) {
+    return "Could not access the message body" + (result.diag ? " (" + result.diag + ")" : "");
+  }
+  return null;
+}
+
 async function getComposeTab() {
   const candidates = [];
 
@@ -60,26 +77,44 @@ async function getComposeTab() {
   return null;
 }
 
-function showStatus(text) {
-  statusEl.textContent = text;
-  setTimeout(() => {
-    statusEl.textContent = "";
-  }, 2000);
+/* The two functions below are serialized and executed inside the compose
+ * window via tabs.executeScript as a fallback when no compose script is
+ * listening. They mirror compose/compose-script.js and operate on the
+ * editable message document. */
+
+function ktiGetDoc() {
+  const tried = [];
+  if (document.body && (document.body.isContentEditable || document.designMode === "on")) {
+    return { doc: document, diag: "main document editable" };
+  }
+  tried.push(
+    "main: body=" + (document.body ? "yes" : "no") +
+    " editable=" + (document.body ? document.body.isContentEditable : "-") +
+    " designMode=" + document.designMode
+  );
+  const frame = document.getElementById("content-frame") || document.querySelector("iframe") || null;
+  if (frame) {
+    try {
+      const fdoc = frame.contentDocument;
+      if (fdoc && fdoc.body) {
+        return { doc: fdoc, diag: "iframe " + (frame.id || "(no id)") };
+      }
+      tried.push("iframe " + (frame.id || "?") + ": no body");
+    } catch (e) {
+      tried.push("iframe " + (frame.id || "?") + " access error: " + e.message);
+    }
+  } else {
+    tried.push("no iframe found");
+  }
+  return { doc: null, diag: tried.join("; ") };
 }
 
-/* The two functions below are serialized and executed inside the compose
- * window via tabs.executeScript. They operate on the editable message body
- * in the "content-frame" iframe. */
-
 function ktiReplaceKeywords(pairs) {
-  const frame = document.getElementById("content-frame");
-  if (!frame || !frame.contentDocument) {
-    return -1;
+  const found = ktiGetDoc();
+  if (!found.doc || !found.doc.body) {
+    return { value: -1, diag: found.diag };
   }
-  const doc = frame.contentDocument;
-  if (!doc.body) {
-    return -1;
-  }
+  const doc = found.doc;
   let replaced = 0;
   const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -106,18 +141,15 @@ function ktiReplaceKeywords(pairs) {
       replaced++;
     }
   }
-  return replaced;
+  return { value: replaced, diag: found.diag };
 }
 
 function ktiInsertAtCursor(text) {
-  const frame = document.getElementById("content-frame");
-  if (!frame || !frame.contentDocument) {
-    return false;
+  const found = ktiGetDoc();
+  if (!found.doc || !found.doc.body) {
+    return { value: false, diag: found.diag };
   }
-  const doc = frame.contentDocument;
-  if (!doc.body) {
-    return false;
-  }
+  const doc = found.doc;
   doc.body.focus();
   const sel = doc.getSelection();
   if (!sel || sel.rangeCount === 0 || !doc.body.contains(sel.getRangeAt(0).commonAncestorContainer)) {
@@ -127,19 +159,7 @@ function ktiInsertAtCursor(text) {
     sel.removeAllRanges();
     sel.addRange(range);
   }
-  return doc.execCommand("insertText", false, text);
-}
-
-async function runInCompose(message, fn, arg) {
-  try {
-    const resp = await browser.runtime.sendMessage(message);
-    if (resp && typeof resp === "object" && "value" in resp) {
-      return { value: resp.value };
-    }
-  } catch (e) {
-    // no compose script reachable; fall back to direct tab injection
-  }
-  return runInComposeTab(fn, arg);
+  return { value: doc.execCommand("insertText", false, text), diag: found.diag };
 }
 
 async function runInComposeTab(fn, arg) {
@@ -150,10 +170,26 @@ async function runInComposeTab(fn, arg) {
   const code = "(" + fn.toString() + ")(" + JSON.stringify(arg) + ");";
   try {
     const results = await browser.tabs.executeScript(tab.id, { code });
-    return { value: Array.isArray(results) ? results[0] : null };
+    const r = Array.isArray(results) ? results[0] : null;
+    if (r && typeof r === "object" && "value" in r) {
+      return { value: r.value, diag: r.diag };
+    }
+    return { value: r };
   } catch (e) {
     return { error: String(e && e.message ? e.message : e) };
   }
+}
+
+async function runInCompose(message, fn, arg) {
+  try {
+    const resp = await browser.runtime.sendMessage(message);
+    if (resp && typeof resp === "object" && resp.result && "value" in resp.result) {
+      return { value: resp.result.value, diag: resp.result.diag };
+    }
+  } catch (e) {
+    // no compose script reachable; fall back to direct tab injection
+  }
+  return runInComposeTab(fn, arg);
 }
 
 async function init() {
@@ -179,10 +215,9 @@ async function init() {
       return;
     }
     const result = await runInCompose({ type: "kti:replace", pairs }, ktiReplaceKeywords, pairs);
-    if (result.error) {
-      showStatus(result.error);
-    } else if (result.value === null || result.value < 0) {
-      showStatus("Could not access the message body");
+    const problem = describe(result);
+    if (problem) {
+      showStatus(problem);
     } else {
       showStatus("Replaced in " + result.value + (result.value === 1 ? " place" : " places"));
     }
@@ -200,10 +235,11 @@ async function init() {
       return;
     }
     const result = await runInCompose({ type: "kti:insert", text: snippet.text }, ktiInsertAtCursor, snippet.text);
-    if (result.error) {
-      showStatus(result.error);
+    const problem = describe(result);
+    if (problem) {
+      showStatus(problem);
     } else {
-      showStatus(result.value ? "Inserted" : "Insert failed");
+      showStatus(result.value ? "Inserted" : "Insert failed" + (result.diag ? " (" + result.diag + ")" : ""));
     }
   });
 

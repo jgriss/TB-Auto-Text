@@ -1,19 +1,44 @@
 function ktiGetDoc() {
-  if (document.body && document.body.isContentEditable) {
-    return document;
+  const tried = [];
+  if (document.body && (document.body.isContentEditable || document.designMode === "on")) {
+    return { doc: document, diag: "main document editable" };
   }
-  const frame = document.getElementById("content-frame");
-  if (frame && frame.contentDocument && frame.contentDocument.body) {
-    return frame.contentDocument;
+  tried.push(
+    "main: body=" + (document.body ? "yes" : "no") +
+    " editable=" + (document.body ? document.body.isContentEditable : "-") +
+    " designMode=" + document.designMode
+  );
+  const frame =
+    document.getElementById("content-frame") ||
+    document.querySelector("iframe") ||
+    null;
+  if (frame) {
+    try {
+      const fdoc = frame.contentDocument;
+      if (fdoc && fdoc.body) {
+        return {
+          doc: fdoc,
+          diag: "iframe " + (frame.id || "(no id)") +
+            " editable=" + fdoc.body.isContentEditable +
+            " designMode=" + fdoc.designMode
+        };
+      }
+      tried.push("iframe " + (frame.id || "?") + ": no body");
+    } catch (e) {
+      tried.push("iframe " + (frame.id || "?") + " access error: " + e.message);
+    }
+  } else {
+    tried.push("no iframe found");
   }
-  return document;
+  return { doc: null, diag: tried.join("; ") };
 }
 
 function ktiReplaceKeywords(pairs) {
-  const doc = ktiGetDoc();
-  if (!doc || !doc.body) {
-    return -1;
+  const found = ktiGetDoc();
+  if (!found.doc || !found.doc.body) {
+    return { value: -1, diag: found.diag };
   }
+  const doc = found.doc;
   let replaced = 0;
   const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -40,14 +65,15 @@ function ktiReplaceKeywords(pairs) {
       replaced++;
     }
   }
-  return replaced;
+  return { value: replaced, diag: found.diag };
 }
 
 function ktiInsertAtCursor(text) {
-  const doc = ktiGetDoc();
-  if (!doc || !doc.body) {
-    return false;
+  const found = ktiGetDoc();
+  if (!found.doc || !found.doc.body) {
+    return { value: false, diag: found.diag };
   }
+  const doc = found.doc;
   doc.body.focus();
   const sel = doc.getSelection();
   if (!sel || sel.rangeCount === 0 || !doc.body.contains(sel.getRangeAt(0).commonAncestorContainer)) {
@@ -57,7 +83,7 @@ function ktiInsertAtCursor(text) {
     sel.removeAllRanges();
     sel.addRange(range);
   }
-  return doc.execCommand("insertText", false, text);
+  return { value: doc.execCommand("insertText", false, text), diag: found.diag };
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -65,8 +91,8 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
   if (message.type === "kti:replace") {
-    sendResponse({ ok: true, value: ktiReplaceKeywords(message.pairs || []) });
+    sendResponse({ ok: true, result: ktiReplaceKeywords(message.pairs || []) });
   } else if (message.type === "kti:insert") {
-    sendResponse({ ok: true, value: ktiInsertAtCursor(message.text || "") });
+    sendResponse({ ok: true, result: ktiInsertAtCursor(message.text || "") });
   }
 });
