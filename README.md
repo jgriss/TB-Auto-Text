@@ -3,6 +3,11 @@
 A Thunderbird MailExtension that manages keyword → text-passage pairs and uses
 them while writing emails.
 
+This repository also contains [`pdf-mailer/`](pdf-mailer/README.md), a separate
+Thunderbird extension that saves the single PDF attachment of the displayed
+email, runs a configurable command line tool on it, and forwards the adapted
+PDF in a new email.
+
 ## Features
 
 1. **Configuration dialog** — open the add-on's options page

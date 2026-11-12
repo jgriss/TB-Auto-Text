@@ -1,0 +1,7 @@
+{
+  "name": "com.example.pdftool",
+  "description": "Runs the configurable command line tool on a PDF for the PDF Mailer Thunderbird extension",
+  "path": "/usr/local/bin/pdf_tool_host.py",
+  "type": "stdio",
+  "allowed_extensions": ["pdf-mailer@example.com"]
+}

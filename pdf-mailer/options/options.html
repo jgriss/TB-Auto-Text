@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PDF Mailer - Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <h1>PDF Mailer</h1>
+  <p class="hint">
+    The button in the message reader saves the email's single PDF attachment,
+    runs the configured command line tool on it, and opens a new email with the
+    adapted PDF attached.
+  </p>
+
+  <div class="field">
+    <label for="targetAddress">Target email address</label>
+    <input id="targetAddress" type="email" placeholder="recipient@example.com">
+  </div>
+
+  <div class="field">
+    <label for="subject">Subject of the new email</label>
+    <input id="subject" type="text" placeholder="Adapted PDF">
+  </div>
+
+  <div class="field">
+    <label for="saveDirectory">Save location (folder inside your Downloads folder)</label>
+    <input id="saveDirectory" type="text" placeholder="pdf-mailer">
+  </div>
+
+  <div class="field">
+    <label for="command">Command line tool (use <code>{pdf}</code> as placeholder for the PDF file path)</label>
+    <input id="command" type="text" placeholder="pdf-stamp {pdf} -o {pdf}">
+  </div>
+
+  <div class="actions">
+    <button id="saveBtn" type="button">Save</button>
+    <span id="status" role="status"></span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

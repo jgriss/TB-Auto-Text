@@ -1,0 +1,38 @@
+{
+  "manifest_version": 2,
+  "name": "PDF Mailer",
+  "version": "1.0.0",
+  "description": "Adds a button to the message reader that saves the email's single PDF attachment, runs a configurable command line tool on it, and opens a new email with the adapted PDF attached.",
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
+  "permissions": [
+    "storage",
+    "messagesRead",
+    "messageDisplay",
+    "compose",
+    "downloads",
+    "nativeMessaging",
+    "notifications"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "message_display_action": {
+    "default_title": "Process PDF and forward",
+    "default_icon": {
+      "48": "icons/icon.svg"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "pdf-mailer@example.com",
+      "strict_min_version": "115.0"
+    }
+  }
+}
